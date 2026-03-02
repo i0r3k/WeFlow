@@ -69,6 +69,16 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
         return { text: `${Math.max(0, Number(contact.postCount || 0))} 条`, className: '' }
     }
 
+    const getEmptyStateText = () => {
+        if (loading && contacts.length === 0) {
+            return '正在加载联系人...'
+        }
+        if (contacts.length === 0) {
+            return '有朋友圈数据的好友或者曾经的好友数量为 0'
+        }
+        return '没有找到联系人'
+    }
+
     return (
         <aside className="sns-filter-panel">
             <div className="filter-header">
@@ -172,7 +182,7 @@ export const SnsFilterPanel: React.FC<SnsFilterPanelProps> = ({
                             )
                         })}
                         {filteredContacts.length === 0 && (
-                            <div className="empty-state">没有找到联系人</div>
+                            <div className="empty-state">{getEmptyStateText()}</div>
                         )}
                     </div>
                 </div>

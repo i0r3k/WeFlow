@@ -351,25 +351,24 @@ export default function SnsPage() {
         }
     }, [jumpTargetDate, persistSnsPageCache, searchKeyword, selectedUsernames])
 
-    // Load Contacts（合并好友+曾经好友+朋友圈发布者，enrichSessionsContactInfo 补充头像）
+    // Load Contacts（仅加载朋友圈覆盖好友/曾经好友，enrichSessionsContactInfo 补充头像）
     const loadContacts = useCallback(async () => {
         const requestToken = ++contactsLoadTokenRef.current
         setContactsLoading(true)
         try {
-            // 先加载联系人基础信息，再异步补齐朋友圈条数
+            // 先加载联系人基础信息和朋友圈覆盖用户名，再异步补齐条数
             const [contactsResult, snsResult] = await Promise.all([
                 window.electronAPI.chat.getContacts(),
                 window.electronAPI.sns.getSnsUsernames()
             ])
 
-            // 以联系人为基础，按 username 去重
-            const contactMap = new Map<string, Contact>()
+            // 好友/曾经好友基础信息（用于补充 displayName/avatar/type）
+            const knownContacts = new Map<string, Contact>()
 
-            // 好友和曾经的好友
             if (contactsResult.success && contactsResult.contacts) {
                 for (const c of contactsResult.contacts) {
                     if (c.type === 'friend' || c.type === 'former_friend') {
-                        contactMap.set(c.username, {
+                        knownContacts.set(c.username, {
                             username: c.username,
                             displayName: c.displayName,
                             avatarUrl: c.avatarUrl,
@@ -380,12 +379,31 @@ export default function SnsPage() {
                 }
             }
 
-            // 朋友圈发布者（补充不在联系人列表中的用户）
-            if (snsResult.success && snsResult.usernames) {
-                for (const u of snsResult.usernames) {
-                    if (!contactMap.has(u)) {
-                        contactMap.set(u, { username: u, displayName: u, type: 'sns_only', postCountStatus: 'loading' })
-                    }
+            if (!snsResult.success) {
+                console.error('Failed to load SNS usernames:', snsResult.error)
+            }
+
+            // 右侧联系人只基于“朋友圈覆盖用户名”集合构建
+            const snsUsernames = Array.from(
+                new Set(
+                    (snsResult.usernames || [])
+                        .map(username => (typeof username === 'string' ? username.trim() : ''))
+                        .filter(Boolean)
+                )
+            )
+
+            const contactMap = new Map<string, Contact>()
+            for (const username of snsUsernames) {
+                const known = knownContacts.get(username)
+                if (known) {
+                    contactMap.set(username, { ...known })
+                } else {
+                    contactMap.set(username, {
+                        username,
+                        displayName: username,
+                        type: 'sns_only',
+                        postCountStatus: 'loading'
+                    })
                 }
             }
 
