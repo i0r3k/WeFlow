@@ -225,18 +225,20 @@
     display: flex;
     align-items: center;
     flex-wrap: nowrap;
-    gap: 14px;
+    gap: 12px;
     margin-bottom: 10px;
 
     label {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       margin-bottom: 0;
       font-size: 13px;
+      line-height: 1;
       font-weight: 500;
       color: var(--text-primary);
       cursor: pointer;
+      white-space: nowrap;
     }
 
     input[type='checkbox'] {
