@@ -258,7 +258,9 @@ function createWindow(options: { autoShow?: boolean } = {}) {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   const win = new BrowserWindow({
     width: 1400,
@@ -381,7 +383,9 @@ function createAgreementWindow() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   const isDark = nativeTheme.shouldUseDarkColors
 
@@ -431,7 +435,9 @@ function createSplashWindow(): BrowserWindow {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   splashWindow = new BrowserWindow({
     width: 760,
@@ -502,7 +508,9 @@ function createOnboardingWindow() {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   onboardingWindow = new BrowserWindow({
     width: 960,
@@ -548,7 +556,9 @@ function createVideoPlayerWindow(videoPath: string, videoWidth?: number, videoHe
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   // 获取屏幕尺寸
   const { screen } = require('electron')
@@ -646,7 +656,9 @@ function createImageViewerWindow(imagePath: string, liveVideoPath?: string) {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   const win = new BrowserWindow({
     width: 900,
@@ -704,7 +716,9 @@ function createChatHistoryWindow(sessionId: string, messageId: number) {
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   // 根据系统主题设置窗口背景色
   const isDark = nativeTheme.shouldUseDarkColors
@@ -779,7 +793,9 @@ function createSessionChatWindow(sessionId: string, options?: OpenSessionChatWin
   const isDev = !!process.env.VITE_DEV_SERVER_URL
   const iconPath = isDev
     ? join(__dirname, '../public/icon.ico')
-    : join(process.resourcesPath, 'icon.ico')
+    : (process.platform === 'darwin' 
+        ? join(process.resourcesPath, 'icon.icns')
+        : join(process.resourcesPath, 'icon.ico'))
 
   const isDark = nativeTheme.shouldUseDarkColors
 

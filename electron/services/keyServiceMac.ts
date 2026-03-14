@@ -178,14 +178,14 @@ export class KeyServiceMac {
     try {
       // 优先使用 pgrep，避免 ps 的 comm 列被截断导致识别失败
       try {
-        const { stdout } = await execFileAsync('pgrep', ['-x', 'WeChat'])
+        const { stdout } = await execFileAsync('/usr/bin/pgrep', ['-x', 'WeChat'])
         const ids = stdout.split(/\r?\n/).map(s => parseInt(s.trim(), 10)).filter(n => Number.isFinite(n) && n > 0)
         if (ids.length > 0) return Math.max(...ids)
       } catch {
         // ignore and fallback to ps
       }
 
-      const { stdout } = await execFileAsync('ps', ['-A', '-o', 'pid,comm,command'])
+      const { stdout } = await execFileAsync('/bin/ps', ['-A', '-o', 'pid,comm,command'])
       const lines = stdout.split('\n').slice(1)
 
       const candidates: Array<{ pid: number; command: string }> = []
@@ -231,7 +231,7 @@ export class KeyServiceMac {
     const pid = await this.getWeChatPid()
     onStatus?.(`已找到微信进程 PID=${pid}，正在定位目标函数...`, 0)
     // 最佳努力清理同路径残留 helper（普通权限）
-    try { await execFileAsync('pkill', ['-f', helperPath], { timeout: 2000 }) } catch { }
+    try { await execFileAsync('/usr/bin/pkill', ['-f', helperPath], { timeout: 2000 }) } catch { }
     
     return await new Promise<string>((resolve, reject) => {
       // xkey_helper 参数协议：helper <pid> [timeout_ms]
