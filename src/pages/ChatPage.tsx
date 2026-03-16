@@ -3338,24 +3338,32 @@ function ChatPage(props: ChatPageProps) {
       return
     }
     const lower = searchKeyword.toLowerCase()
-    setFilteredSessions(visible.filter(s => {
-      const matchedByName = s.displayName?.toLowerCase().includes(lower)
-      const matchedByUsername = s.username.toLowerCase().includes(lower)
-      const matchedByAlias = s.alias?.toLowerCase().includes(lower)
+    setFilteredSessions(visible
+        .filter(s => {
+          const matchedByName = s.displayName?.toLowerCase().includes(lower)
+          const matchedByUsername = s.username.toLowerCase().includes(lower)
+          const matchedByAlias = s.alias?.toLowerCase().includes(lower)
+          return matchedByName || matchedByUsername || matchedByAlias
+        })
+        .map(s => {
+          const matchedByName = s.displayName?.toLowerCase().includes(lower)
+          const matchedByUsername = s.username.toLowerCase().includes(lower)
+          const matchedByAlias = s.alias?.toLowerCase().includes(lower)
 
-      if (matchedByUsername && !matchedByName && !matchedByAlias) {
-        s.matchedField = 'wxid'
-      } else if (matchedByAlias && !matchedByName && !matchedByUsername) {
-        s.matchedField = 'alias'
-      } else if (matchedByName && !matchedByUsername && !matchedByAlias) {
-        (s as any).matchedField = 'name'
-        console.log('设置 matchedField=name:', s.displayName)
-      } else {
-        s.matchedField = undefined
-      }
+          let matchedField: 'wxid' | 'alias' | 'name' | undefined = undefined
+          
+          if (matchedByUsername && !matchedByName && !matchedByAlias) {
+            matchedField = 'wxid'
+          } else if (matchedByAlias && !matchedByName && !matchedByUsername) {
+            matchedField = 'alias'
+          } else if (matchedByName && !matchedByUsername && !matchedByAlias) {
+            matchedField = 'name'
+          }
 
-      return matchedByName || matchedByUsername || matchedByAlias
-    }))
+          // ✅ 关键点：返回一个新对象，解耦全局状态
+          return { ...s, matchedField }
+        })
+    )
   }, [sessions, searchKeyword, setFilteredSessions])
 
   // 折叠群列表（独立计算，供折叠 panel 使用）
@@ -3364,22 +3372,34 @@ function ChatPage(props: ChatPageProps) {
     const folded = sessions.filter(s => s.isFolded)
     if (!searchKeyword.trim() || !foldedView) return folded
     const lower = searchKeyword.toLowerCase()
-    return folded.filter(s => {
-      const matchedByName = s.displayName?.toLowerCase().includes(lower)
-      const matchedByUsername = s.username.toLowerCase().includes(lower)
-      const matchedByAlias = s.alias?.toLowerCase().includes(lower)
-      const matchedBySummary = s.summary.toLowerCase().includes(lower)
+    return folded
+        // 1. 先过滤
+        .filter(s => {
+          const matchedByName = s.displayName?.toLowerCase().includes(lower)
+          const matchedByUsername = s.username.toLowerCase().includes(lower)
+          const matchedByAlias = s.alias?.toLowerCase().includes(lower)
+          const matchedBySummary = s.summary?.toLowerCase().includes(lower) // 注意：这里有个 summary
 
-      if (matchedByUsername && !matchedByName && !matchedBySummary && !matchedByAlias) {
-        s.matchedField = 'wxid'
-      } else if (matchedByAlias && !matchedByName && !matchedBySummary && !matchedByUsername) {
-        s.matchedField = 'alias'
-      } else {
-        s.matchedField = undefined
-      }
+          return matchedByName || matchedByUsername || matchedByAlias || matchedBySummary
+        })
+        // 2. 后映射
+        .map(s => {
+          const matchedByName = s.displayName?.toLowerCase().includes(lower)
+          const matchedByUsername = s.username.toLowerCase().includes(lower)
+          const matchedByAlias = s.alias?.toLowerCase().includes(lower)
+          const matchedBySummary = s.summary?.toLowerCase().includes(lower)
 
-      return matchedByName || matchedByUsername || matchedByAlias || matchedBySummary
-    })
+          let matchedField: 'wxid' | 'alias' | 'name' | undefined = undefined
+
+          if (matchedByUsername && !matchedByName && !matchedBySummary && !matchedByAlias) {
+            matchedField = 'wxid'
+          } else if (matchedByAlias && !matchedByName && !matchedBySummary && !matchedByUsername) {
+            matchedField = 'alias'
+          }
+
+          // ✅ 同样返回新对象
+          return { ...s, matchedField }
+        })
   }, [sessions, searchKeyword, foldedView])
 
   const hasSessionRecords = Array.isArray(sessions) && sessions.length > 0
