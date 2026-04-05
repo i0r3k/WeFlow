@@ -17,7 +17,7 @@ import https from 'https'
 import http from 'http'
 import { URL } from 'url'
 import { ConfigService } from './config'
-import { chatService } from './chatService'
+import { chatService, type ChatSession, type Message } from './chatService'
 import { showNotification } from '../windows/notificationWindow'
 
 // ─── 常量 ────────────────────────────────────────────────────────────────────
@@ -45,12 +45,6 @@ const DEFAULT_SILENCE_DAYS = 3
 interface TodayTriggerRecord {
   /** 该会话今日触发的时间戳列表（毫秒） */
   timestamps: number[]
-}
-
-interface InsightResult {
-  sessionId: string
-  displayName: string
-  insight: string
 }
 
 // ─── 工具函数 ─────────────────────────────────────────────────────────────────
@@ -124,8 +118,8 @@ function callApi(
       }
     }
 
-    const transport = urlObj.protocol === 'https:' ? https : http
-    const req = (transport as typeof https).request(options, (res) => {
+    const isHttps = urlObj.protocol === 'https:'
+    const req = (isHttps ? https : http).request(options, (res) => {
       let data = ''
       res.on('data', (chunk) => { data += chunk })
       res.on('end', () => {
@@ -193,9 +187,18 @@ class InsightService {
 
   stop(): void {
     this.started = false
-    if (this.dbDebounceTimer) { clearTimeout(this.dbDebounceTimer); this.dbDebounceTimer = null }
-    if (this.silenceScanTimer) { clearInterval(this.silenceScanTimer); this.silenceScanTimer = null }
-    if (this.silenceInitialDelayTimer) { clearTimeout(this.silenceInitialDelayTimer); this.silenceInitialDelayTimer = null }
+    if (this.dbDebounceTimer !== null) {
+      clearTimeout(this.dbDebounceTimer)
+      this.dbDebounceTimer = null
+    }
+    if (this.silenceScanTimer !== null) {
+      clearInterval(this.silenceScanTimer)
+      this.silenceScanTimer = null
+    }
+    if (this.silenceInitialDelayTimer !== null) {
+      clearTimeout(this.silenceInitialDelayTimer)
+      this.silenceInitialDelayTimer = null
+    }
     console.log('[InsightService] 已停止')
   }
 
@@ -207,7 +210,9 @@ class InsightService {
     if (!this.started) return
     if (!this.isEnabled()) return
 
-    if (this.dbDebounceTimer) clearTimeout(this.dbDebounceTimer)
+    if (this.dbDebounceTimer !== null) {
+      clearTimeout(this.dbDebounceTimer)
+    }
     this.dbDebounceTimer = setTimeout(() => {
       this.dbDebounceTimer = null
       void this.analyzeRecentActivity()
@@ -320,14 +325,15 @@ class InsightService {
       const sessionsResult = await chatService.getSessions()
       if (!sessionsResult.success || !sessionsResult.sessions) return
 
-      const sessions = sessionsResult.sessions as any[]
+      const sessions: ChatSession[] = sessionsResult.sessions
 
       for (const session of sessions) {
-        const sessionId = String(session.username || '').trim()
+        const sessionId = session.username?.trim() || ''
         if (!sessionId || sessionId.endsWith('@chatroom')) continue // 跳过群聊
         if (sessionId.toLowerCase().includes('placeholder')) continue
 
-        const lastTimestamp = Number(session.lastTimestamp || 0) * (String(session.lastTimestamp).length <= 10 ? 1000 : 1)
+        // lastTimestamp 单位是秒，需要转换为毫秒
+        const lastTimestamp = (session.lastTimestamp || 0) * 1000
         if (!lastTimestamp || lastTimestamp <= 0) continue
 
         const silentMs = now - lastTimestamp
@@ -366,18 +372,18 @@ class InsightService {
       const sessionsResult = await chatService.getSessions()
       if (!sessionsResult.success || !sessionsResult.sessions) return
 
-      const sessions = sessionsResult.sessions as any[]
+      const sessions: ChatSession[] = sessionsResult.sessions
       // 只取最近有活动的前 5 个会话（排除群聊以降低噪音，可按需调整）
       const candidates = sessions
         .filter((s) => {
-          const id = String(s.username || '').trim()
+          const id = s.username?.trim() || ''
           return id && !id.endsWith('@chatroom') && !id.toLowerCase().includes('placeholder')
         })
         .slice(0, 5)
 
       for (const session of candidates) {
         await this.generateInsightForSession({
-          sessionId: String(session.username || '').trim(),
+          sessionId: session.username?.trim() || '',
           displayName: session.displayName || session.username,
           triggerReason: 'activity'
         })
@@ -418,7 +424,8 @@ class InsightService {
       try {
         const msgsResult = await chatService.getLatestMessages(sessionId, MAX_CONTEXT_MESSAGES)
         if (msgsResult.success && msgsResult.messages && msgsResult.messages.length > 0) {
-          const msgLines = (msgsResult.messages as any[]).map((m) => {
+          const messages: Message[] = msgsResult.messages
+          const msgLines = messages.map((m) => {
             const sender = m.isSend === 1 ? '我' : (displayName || sessionId)
             const content = m.rawContent || m.parsedContent || '[非文字消息]'
             const time = new Date(Number(m.createTime) * 1000).toLocaleString('zh-CN')
