@@ -77,7 +77,7 @@
     "appId": "com.WeFlow.app",
     "publish": {
       "provider": "github",
-      "owner": "hicccc77",
+      "owner": "Jasonzhu1207",
       "repo": "WeFlow",
       "releaseType": "release"
     },
