@@ -92,6 +92,7 @@ export interface ExportOptions {
   dateRange?: { start: number; end: number } | null
   senderUsername?: string
   fileNameSuffix?: string
+  fileNamingMode?: 'classic' | 'date-range'
   exportMedia?: boolean
   exportAvatars?: boolean
   exportImages?: boolean
@@ -492,6 +493,80 @@ class ExportService {
     } catch {
       return false
     }
+  }
+
+  private sanitizeExportFileNamePart(value: string): string {
+    return String(value || '')
+      .replace(/[<>:"\/\\|?*]/g, '_')
+      .replace(/\.+$/, '')
+      .trim()
+  }
+
+  private normalizeFileNamingMode(value: unknown): 'classic' | 'date-range' {
+    return String(value || '').trim().toLowerCase() === 'date-range' ? 'date-range' : 'classic'
+  }
+
+  private formatDateTokenBySeconds(seconds?: number): string | null {
+    if (!Number.isFinite(seconds) || (seconds || 0) <= 0) return null
+    const date = new Date(Math.floor(Number(seconds)) * 1000)
+    if (Number.isNaN(date.getTime())) return null
+    const y = date.getFullYear()
+    const m = `${date.getMonth() + 1}`.padStart(2, '0')
+    const d = `${date.getDate()}`.padStart(2, '0')
+    return `${y}${m}${d}`
+  }
+
+  private buildDateRangeFileNamePart(dateRange?: { start: number; end: number } | null): string {
+    const start = this.formatDateTokenBySeconds(dateRange?.start)
+    const end = this.formatDateTokenBySeconds(dateRange?.end)
+    if (start && end) {
+      if (start === end) return start
+      return start < end ? `${start}-${end}` : `${end}-${start}`
+    }
+    if (start) return `${start}-至今`
+    if (end) return `截至-${end}`
+    return '全部时间'
+  }
+
+  private buildSessionExportBaseName(
+    sessionId: string,
+    displayName: string,
+    options: ExportOptions
+  ): string {
+    const baseName = this.sanitizeExportFileNamePart(displayName || sessionId) || this.sanitizeExportFileNamePart(sessionId) || 'session'
+    const suffix = this.sanitizeExportFileNamePart(options.fileNameSuffix || '')
+    const namingMode = this.normalizeFileNamingMode(options.fileNamingMode)
+    const parts = [baseName]
+    if (suffix) parts.push(suffix)
+    if (namingMode === 'date-range') {
+      parts.push(this.buildDateRangeFileNamePart(options.dateRange))
+    }
+    return this.sanitizeExportFileNamePart(parts.join('_')) || 'session'
+  }
+
+  private async reserveUniqueOutputPath(preferredPath: string, reservedPaths: Set<string>): Promise<string> {
+    const dir = path.dirname(preferredPath)
+    const ext = path.extname(preferredPath)
+    const base = path.basename(preferredPath, ext)
+
+    for (let attempt = 0; attempt < 10000; attempt += 1) {
+      const candidate = attempt === 0
+        ? preferredPath
+        : path.join(dir, `${base}_${attempt + 1}${ext}`)
+
+      if (reservedPaths.has(candidate)) continue
+
+      const exists = await this.pathExists(candidate)
+      if (reservedPaths.has(candidate)) continue
+      if (exists) continue
+
+      reservedPaths.add(candidate)
+      return candidate
+    }
+
+    const fallback = path.join(dir, `${base}_${Date.now()}${ext}`)
+    reservedPaths.add(fallback)
+    return fallback
   }
 
   private isCloneUnsupportedError(code: string | undefined): boolean {
@@ -2044,6 +2119,7 @@ class ExportService {
             }
             return title || '[引用消息]'
           }
+          if (xmlType === '53') return title ? `[接龙] ${title.split(/\r?\n/).map(line => line.trim()).find(Boolean) || title}` : '[接龙]'
           if (xmlType === '5' || xmlType === '49') return title ? `[链接] ${title}` : '[链接]'
 
           // 有 title 就返回 title
@@ -3145,6 +3221,8 @@ class ExportService {
       appMsgKind = 'announcement'
     } else if (xmlType === '57' || hasReferMsg || localType === 244813135921) {
       appMsgKind = 'quote'
+    } else if (xmlType === '53') {
+      appMsgKind = 'solitaire'
     } else if (xmlType === '5' || xmlType === '49') {
       appMsgKind = 'link'
     } else if (looksLikeAppMsg) {
@@ -8911,6 +8989,7 @@ class ExportService {
         ? path.join(outputDir, 'texts')
         : outputDir
       const createdTaskDirs = new Set<string>()
+      const reservedOutputPaths = new Set<string>()
       const ensureTaskDir = async (dirPath: string) => {
         if (createdTaskDirs.has(dirPath)) return
         await fs.promises.mkdir(dirPath, { recursive: true })
@@ -9159,10 +9238,8 @@ class ExportService {
             phaseLabel: '准备导出'
           })
 
-          const sanitizeName = (value: string) => value.replace(/[<>:"\/\\|?*]/g, '_').replace(/\.+$/, '').trim()
-          const baseName = sanitizeName(sessionInfo.displayName || sessionId) || sanitizeName(sessionId) || 'session'
-          const suffix = sanitizeName(effectiveOptions.fileNameSuffix || '')
-          const safeName = suffix ? `${baseName}_${suffix}` : baseName
+          const fileNamingMode = this.normalizeFileNamingMode(effectiveOptions.fileNamingMode)
+          const safeName = this.buildSessionExportBaseName(sessionId, sessionInfo.displayName, effectiveOptions)
           const sessionNameWithTypePrefix = effectiveOptions.sessionNameWithTypePrefix !== false
           const sessionTypePrefix = sessionNameWithTypePrefix ? await this.getSessionFilePrefix(sessionId) : ''
           const fileNameWithPrefix = `${sessionTypePrefix}${safeName}`
@@ -9180,13 +9257,13 @@ class ExportService {
           else if (effectiveOptions.format === 'txt') ext = '.txt'
           else if (effectiveOptions.format === 'weclone') ext = '.csv'
           else if (effectiveOptions.format === 'html') ext = '.html'
-          const outputPath = path.join(sessionDir, `${fileNameWithPrefix}${ext}`)
+          const preferredOutputPath = path.join(sessionDir, `${fileNameWithPrefix}${ext}`)
           const canTrySkipUnchanged = canTrySkipUnchangedTextSessions &&
             typeof messageCountHint === 'number' &&
             messageCountHint >= 0 &&
             typeof latestTimestampHint === 'number' &&
             latestTimestampHint > 0 &&
-            await this.pathExists(outputPath)
+            await this.pathExists(preferredOutputPath)
           if (canTrySkipUnchanged) {
             const latestRecord = exportRecordService.getLatestRecord(sessionId, effectiveOptions.format)
             const hasNoDataChange = Boolean(
@@ -9212,6 +9289,10 @@ class ExportService {
               return 'done'
             }
           }
+
+          const outputPath = fileNamingMode === 'date-range'
+            ? await this.reserveUniqueOutputPath(preferredOutputPath, reservedOutputPaths)
+            : preferredOutputPath
 
           let result: { success: boolean; error?: string }
           if (effectiveOptions.format === 'json' || effectiveOptions.format === 'arkme-json') {

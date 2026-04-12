@@ -17,6 +17,7 @@ import AgreementPage from './pages/AgreementPage'
 import GroupAnalyticsPage from './pages/GroupAnalyticsPage'
 import SettingsPage from './pages/SettingsPage'
 import ExportPage from './pages/ExportPage'
+import MyFootprintPage from './pages/MyFootprintPage'
 import VideoWindow from './pages/VideoWindow'
 import ImageWindow from './pages/ImageWindow'
 import SnsPage from './pages/SnsPage'
@@ -25,6 +26,7 @@ import ContactsPage from './pages/ContactsPage'
 import ResourcesPage from './pages/ResourcesPage'
 import ChatHistoryPage from './pages/ChatHistoryPage'
 import NotificationWindow from './pages/NotificationWindow'
+import AccountManagementPage from './pages/AccountManagementPage'
 
 import { useAppStore } from './stores/appStore'
 import { themes, useThemeStore, type ThemeId, type ThemeMode } from './stores/themeStore'
@@ -677,6 +679,7 @@ function App() {
             <Routes location={routeLocation}>
               <Route path="/" element={<HomePage />} />
               <Route path="/home" element={<HomePage />} />
+              <Route path="/account-management" element={<AccountManagementPage />} />
               <Route path="/chat" element={<ChatPage />} />
 
               <Route path="/analytics" element={<ChatAnalyticsHubPage />} />
@@ -689,6 +692,7 @@ function App() {
               <Route path="/annual-report/view" element={<AnnualReportWindow />} />
               <Route path="/dual-report" element={<DualReportPage />} />
               <Route path="/dual-report/view" element={<DualReportWindow />} />
+              <Route path="/footprint" element={<MyFootprintPage />} />
 
               <Route path="/export" element={<div className="export-route-anchor" aria-hidden="true" />} />
               <Route path="/sns" element={<SnsPage />} />

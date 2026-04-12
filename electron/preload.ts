@@ -110,7 +110,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('window:respondCloseConfirm', action),
     openAgreementWindow: () => ipcRenderer.invoke('window:openAgreementWindow'),
     completeOnboarding: () => ipcRenderer.invoke('window:completeOnboarding'),
-    openOnboardingWindow: () => ipcRenderer.invoke('window:openOnboardingWindow'),
+    openOnboardingWindow: (options?: { mode?: 'add-account' }) => ipcRenderer.invoke('window:openOnboardingWindow', options),
     setTitleBarOverlay: (options: { symbolColor: string }) => ipcRenderer.send('window:setTitleBarOverlay', options),
     openVideoPlayerWindow: (videoPath: string, videoWidth?: number, videoHeight?: number) =>
       ipcRenderer.invoke('window:openVideoPlayerWindow', videoPath, videoWidth, videoHeight),
@@ -258,6 +258,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.invoke('chat:getMessage', sessionId, localId),
     searchMessages: (keyword: string, sessionId?: string, limit?: number, offset?: number, beginTimestamp?: number, endTimestamp?: number) =>
       ipcRenderer.invoke('chat:searchMessages', keyword, sessionId, limit, offset, beginTimestamp, endTimestamp),
+    getMyFootprintStats: (
+      beginTimestamp: number,
+      endTimestamp: number,
+      options?: {
+        myWxid?: string
+        privateSessionIds?: string[]
+        groupSessionIds?: string[]
+        mentionLimit?: number
+        privateLimit?: number
+        mentionMode?: 'text_at_me' | string
+      }
+    ) => ipcRenderer.invoke('chat:getMyFootprintStats', beginTimestamp, endTimestamp, options),
+    exportMyFootprint: (
+      beginTimestamp: number,
+      endTimestamp: number,
+      format: 'csv' | 'json',
+      filePath: string
+    ) => ipcRenderer.invoke('chat:exportMyFootprint', beginTimestamp, endTimestamp, format, filePath),
     onWcdbChange: (callback: (event: any, data: { type: string; json: string }) => void) => {
       ipcRenderer.on('wcdb-change', callback)
       return () => ipcRenderer.removeListener('wcdb-change', callback)
@@ -508,6 +526,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   insight: {
     testConnection: () => ipcRenderer.invoke('insight:testConnection'),
     getTodayStats: () => ipcRenderer.invoke('insight:getTodayStats'),
-    triggerTest: () => ipcRenderer.invoke('insight:triggerTest')
+    triggerTest: () => ipcRenderer.invoke('insight:triggerTest'),
+    generateFootprintInsight: (payload: {
+      rangeLabel: string
+      summary: {
+        private_inbound_people?: number
+        private_replied_people?: number
+        private_outbound_people?: number
+        private_reply_rate?: number
+        mention_count?: number
+        mention_group_count?: number
+      }
+      privateSegments?: Array<{ displayName?: string; session_id?: string; incoming_count?: number; outgoing_count?: number; message_count?: number; replied?: boolean }>
+      mentionGroups?: Array<{ displayName?: string; session_id?: string; count?: number }>
+    }) => ipcRenderer.invoke('insight:generateFootprintInsight', payload)
   }
 })
