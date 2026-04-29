@@ -1055,11 +1055,11 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
   }
 
   useEffect(() => {
-    if (activeTab !== 'antiRevoke' && activeTab !== 'insight') return
+    if (activeTab !== 'antiRevoke' && activeTab !== 'insight' && activeTab !== 'autoDownload') return
     let canceled = false
     ;(async () => {
       try {
-        if (activeTab === 'antiRevoke') {
+        if (activeTab === 'antiRevoke' || activeTab === 'autoDownload') {
           await ensureAntiRevokeSessionsLoaded()
         } else {
           await ensureChatSessionsLoaded()
@@ -4701,12 +4701,13 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
   )
 
   const renderAutoDownloadTab = () => {
-    const sortedSessions = [...chatSessions].sort((a, b) => (b.sortTimestamp || 0) - (a.sortTimestamp || 0))
+    const sortedSessions = [...antiRevokeSessions].sort((a, b) => (b.sortTimestamp || 0) - (a.sortTimestamp || 0))
     const keyword = autoDownloadSearchKeyword.trim().toLowerCase()
     const filteredSessions = sortedSessions.filter((session) => {
       if (!keyword) return true
-      return (session.displayName || '').toLowerCase().includes(keyword) ||
-          session.username.toLowerCase().includes(keyword)
+      const displayName = String(session.displayName || '').toLowerCase()
+      const username = String(session.username || '').toLowerCase()
+      return displayName.includes(keyword) || username.includes(keyword)
     })
     const filteredSessionIds = filteredSessions.map((session) => session.username)
     const selectedCount = autoDownloadSelectedIds.size
@@ -4718,7 +4719,6 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
       const whitelistArr = Array.from(ids)
       configService.setAutoDownloadWhitelist(whitelistArr)
       if (autoDownloadHighRes) {
-        // 转换为 wxid\0wxid\0wxid\0\0 格式
         const whitelistStr = whitelistArr.length > 0 ? (whitelistArr.join('\0') + '\0\0') : '';
         (window as any).electronAPI.image.startAutoDownload(whitelistStr)
       }
@@ -4747,10 +4747,10 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
 
     return (
         <div className="tab-content anti-revoke-tab">
-          {/* 顶部 Hero 区域 */}
+          {/* 顶部 Hero 区域保持不变 */}
           <div className="anti-revoke-hero" style={{ background: 'linear-gradient(110deg, var(--bg-primary) 0%, rgba(245, 158, 11, 0.1) 100%)', borderColor: 'rgba(245, 158, 11, 0.3)' }}>
             <div className="anti-revoke-hero-main">
-              <span className="updates-chip" style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', width: 'fit-content' }}>测试功能 (Beta)</span>
+              <span className="updates-chip" style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.15)', width: 'fit-content' }}>测试功能 (Test)</span>
               <h2 style={{ marginTop: '8px' }}>自动下载原图</h2>
               <p>强制微信在接收图片时下载高清原图。建议仅在必要会话中开启以节省流量和空间。</p>
             </div>
@@ -4758,8 +4758,8 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
               <div className={`anti-revoke-metric ${isHooked ? 'is-installed' : 'is-pending'}`}>
                 <span className="label">服务状态</span>
                 <span className="value" style={{ fontSize: '14px' }}>
-                  {isHooked ? '正在监控' : autoDownloadHighRes ? '等待连接' : '未启用'}
-                </span>
+              {isHooked ? '正在监控' : autoDownloadHighRes ? '等待连接' : '未启用'}
+            </span>
               </div>
               <div className="anti-revoke-metric">
                 <span className="label">已选会话</span>
@@ -4782,14 +4782,14 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
               <div className="anti-revoke-toolbar-actions">
                 <div className="anti-revoke-btn-group">
                   <button className="btn btn-secondary btn-sm" onClick={selectAllFiltered} disabled={filteredSessionIds.length === 0 || allFilteredSelected}>
-                    全选过滤
+                    全选
                   </button>
                   <button className="btn btn-secondary btn-sm" onClick={clearSelection} disabled={selectedCount === 0}>
                     清空选择
                   </button>
                 </div>
                 <div className="anti-revoke-btn-group" style={{ marginLeft: '12px', paddingLeft: '12px', borderLeft: '1px solid var(--border-color)' }}>
-                  <label className="switch switch-md" title={autoDownloadHighRes ? '关闭自动下载' : '开启自动下载'}>
+                  <label className="switch switch-md">
                     <input
                         type="checkbox"
                         checked={autoDownloadHighRes}
@@ -4798,8 +4798,8 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
                     <span className="switch-slider" />
                   </label>
                   <span style={{ fontSize: '12px', color: 'var(--text-secondary)', marginLeft: '8px' }}>
-                    {autoDownloadHighRes ? '已开启' : '已关闭'}
-                  </span>
+                {autoDownloadHighRes ? '服务已开启' : '服务已关闭'}
+              </span>
                 </div>
               </div>
             </div>
@@ -4815,35 +4815,44 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
           <div className="anti-revoke-list">
             <div className="anti-revoke-list-header">
               <span>会话（{filteredSessions.length}）</span>
-              <span>选择</span>
+              <span>状态</span>
             </div>
             {filteredSessions.length === 0 ? (
                 <div className="anti-revoke-empty">{autoDownloadSearchKeyword ? '没有匹配的会话' : '暂无会话'}</div>
             ) : (
-                filteredSessions.map((session) => (
-                    <div
-                        key={session.username}
-                        className={`anti-revoke-row ${autoDownloadSelectedIds.has(session.username) ? 'selected' : ''}`}
-                        onClick={() => toggleSelection(session.username)}
-                    >
-                      <div className="anti-revoke-row-main">
-                        <Avatar src={session.avatarUrl} name={session.displayName} size={30} />
-                        <div className="anti-revoke-row-text">
-                          <span className="name">{session.displayName || session.username}</span>
-                          <span className="username" style={{ fontSize: '11px', opacity: 0.5 }}>{session.username}</span>
+                filteredSessions.map((session) => {
+                  const isSelected = autoDownloadSelectedIds.has(session.username)
+                  return (
+                      <div key={session.username} className={`anti-revoke-row ${isSelected ? 'selected' : ''}`}>
+                        <label className="anti-revoke-row-main">
+                  <span className="anti-revoke-check">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelection(session.username)}
+                    />
+                    <span className="check-indicator" aria-hidden="true">
+                      <Check size={12} />
+                    </span>
+                  </span>
+                          <Avatar src={session.avatarUrl} name={session.displayName} size={30} />
+                          <div className="anti-revoke-row-text">
+                            <span className="name">{session.displayName || session.username}</span>
+                          </div>
+                        </label>
+                        <div className="anti-revoke-row-status">
+                  <span className={`status-badge ${isSelected ? 'installed' : 'not-installed'}`}>
+                    <i className="status-dot" aria-hidden="true" />
+                    {isSelected ? '已监控' : '未开启'}
+                  </span>
                         </div>
                       </div>
-                      <div className="anti-revoke-row-status">
-                        <span className={`anti-revoke-check ${autoDownloadSelectedIds.has(session.username) ? 'checked' : ''}`}>
-                          <Check size={14} />
-                        </span>
-                      </div>
-                    </div>
-                ))
+                  )
+                })
             )}
           </div>
 
-          {/* 风险提示 */}
+          {/* 风险提示部分保持不变 */}
           <div className="api-warning-modal" style={{ width: '100%', border: '1px solid rgba(239, 68, 68, 0.2)', marginTop: '16px', background: 'rgba(239, 68, 68, 0.02)', animation: 'none', boxShadow: 'none', position: 'static' }}>
             <div className="modal-header" style={{ border: 'none', padding: '12px 20px 0' }}>
               <Lock size={16} color="#ef4444" />
@@ -4856,6 +4865,8 @@ function SettingsPage({ onClose }: SettingsPageProps = {}) {
         </div>
     )
   }
+
+
   const handleToggleAutoDownload = async (whitelist?: string[] | string) => {
     const newVal = !autoDownloadHighRes
     setAutoDownloadHighRes(newVal)
